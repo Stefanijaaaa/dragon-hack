@@ -2,9 +2,50 @@ import os
 import pygame
 import math
 import threading
+import queue
+import uuid
 from dotenv import load_dotenv
 import google.generativeai as genai
-import pyttsx3
+from gtts import gTTS
+import pygame.mixer
+
+# Initialize Pygame mixer
+pygame.mixer.init()
+
+# Speech queue and background thread
+speech_queue = queue.Queue()
+
+icon = pygame.image.load('cup.png')  # Replace with the path to your icon image
+pygame.display.set_icon(icon)
+
+def speech_player():
+    while True:
+        text = speech_queue.get()
+        try:
+            unique_id = str(uuid.uuid4())
+            filename = f"speech_{unique_id}.mp3"
+            tts = gTTS(text)
+            tts.save(filename)
+
+            pygame.mixer.music.stop()
+            pygame.mixer.music.unload()
+            pygame.mixer.music.load(filename)
+            pygame.mixer.music.play()
+
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(10)
+
+            pygame.mixer.music.stop()
+            os.remove(filename)
+
+        except Exception as e:
+            print(f"Speech error: {e}")
+
+# Start the background speech thread
+threading.Thread(target=speech_player, daemon=True).start()
+
+def speak_text(text):
+    speech_queue.put(text)
 
 # Load environment variables
 load_dotenv()
@@ -14,13 +55,10 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 pygame.init()
 pygame.font.init()
 
-# Initialize TTS engine
-engine = pyttsx3.init()
-
 # Window settings
 WIDTH, HEIGHT = 720, 540
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("🎵 Educational Song Generator")
+pygame.display.set_caption("Don't Cry Over Spilt Coffee!")
 
 # Colors
 WHITE = (250, 250, 250)
@@ -28,7 +66,6 @@ LIGHT = (240, 240, 240)
 DARK = (40, 40, 40)
 GRAY = (200, 200, 200)
 BLUE = (100, 149, 237)
-SOFT_SHADOW = (230, 230, 230)
 
 # Fonts
 def get_font(size):
@@ -56,12 +93,6 @@ output_height = 280
 scroll_offset = 0
 content_height = 0
 
-# Scrollbar
-scrollbar_rect = pygame.Rect(output_x + output_width - 10, output_y, 6, output_height)
-scrollbar_color = GRAY
-scrollbar_dragging = False
-scrollbar_handle_rect = pygame.Rect(0, 0, 6, 50)
-
 # Cursor blinking
 cursor_timer = 0
 show_cursor = True
@@ -77,12 +108,7 @@ def draw_spinner(center_x, center_y, radius, angle):
         y = center_y + radius * math.sin(radians)
         pygame.draw.circle(screen, fade_color[:3], (int(x), int(y)), 6)
 
-# Function to generate speech from text
-def speak_text(text):
-    engine.say(text)
-    engine.runAndWait()
-
-# Model generator functions
+# Generate educational poem
 def generate_edu_song(topic):
     global verse_lines, loading
     loading = True
@@ -93,7 +119,7 @@ def generate_edu_song(topic):
     - Use simple language suitable for learners.
     - Ensure it teaches the topic effectively through the lyrics.
     - Keep it playful, musical, and informative.
-    Output only the 10 lines of the poem but do not number them.
+    Output only the 10 lines of the poem but do not number them. The title should be given without any " or * before it.
     """
     model = genai.GenerativeModel(model_name="gemini-2.0-flash")
     response = model.generate_content(prompt)
@@ -101,6 +127,7 @@ def generate_edu_song(topic):
     loading = False
     speak_text("\n".join(verse_lines))
 
+# Generate Gen Z type shii
 def generate_genz_shii_song(topic):
     global verse_lines, loading
     loading = True
@@ -124,42 +151,28 @@ def wrap_text(text, font, max_width):
     words = text.split(' ')
     lines = []
     current_line = ''
-
     for word in words:
-        # Check the width of the current line plus the new word
         test_line = current_line + ' ' + word if current_line else word
         test_width = font.render(test_line, True, DARK).get_width()
-        
         if test_width <= max_width:
             current_line = test_line
         else:
             lines.append(current_line)
-            current_line = word  # Start a new line with the current word
-    
-    # Add the last line
+            current_line = word
     if current_line:
         lines.append(current_line)
-    
     return lines
 
-# Main loop
+# Main loop setup
 clock = pygame.time.Clock()
 running = True
-
-# Dropdown menu state
 model_selected = "EduPoem"
-dropdown_open = False
-
-# Button sizes and center calculation
 button_width = 200
 button_height = 40
-
-# Centering buttons side by side
-total_width = button_width * 2 + 20  # 20px space between buttons
+total_width = button_width * 2 + 20
 edu_poem_x = (WIDTH // 2) - (total_width // 2)
-gen_z_shii_x = edu_poem_x + button_width + 10  # 10px space between buttons
+gen_z_shii_x = edu_poem_x + button_width + 10
 
-# Button rectangles
 buttons = {
     "edu_poem": pygame.Rect(edu_poem_x, 70, button_width, button_height),
     "gen_z_shii": pygame.Rect(gen_z_shii_x, 70, button_width, button_height)
@@ -167,25 +180,17 @@ buttons = {
 
 def render_button(text, rect, color, hover_color):
     mouse_pos = pygame.mouse.get_pos()
-    if rect.collidepoint(mouse_pos):
-        pygame.draw.rect(screen, hover_color, rect, border_radius=10)
-    else:
-        pygame.draw.rect(screen, color, rect, border_radius=10)
-    
-    # If the button is selected, change the color to a darker shade
+    pygame.draw.rect(screen, hover_color if rect.collidepoint(mouse_pos) else color, rect, border_radius=10)
     if (rect == buttons["edu_poem"] and model_selected == "EduPoem") or (rect == buttons["gen_z_shii"] and model_selected == "GenZ Type Shii"):
         pygame.draw.rect(screen, DARK, rect, border_radius=10)
-    
     text_surface = LABEL_FONT.render(text, True, WHITE)
     screen.blit(text_surface, (rect.x + (rect.width - text_surface.get_width()) // 2, rect.y + (rect.height - text_surface.get_height()) // 2))
 
 # Main loop
 while running:
-    screen.fill(LIGHT)  # Fill screen with light color to avoid black background
+    screen.fill(LIGHT)
+    angle += 0.1
 
-    angle += 0.1  # Spinner angle update
-
-    # Event handling
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -195,11 +200,7 @@ while running:
                 model_selected = "EduPoem"
             elif buttons["gen_z_shii"].collidepoint(event.pos):
                 model_selected = "GenZ Type Shii"
-
-            if input_rect.collidepoint(event.pos):
-                active = True
-            else:
-                active = False
+            active = input_rect.collidepoint(event.pos)
             input_color = BLUE if active else GRAY
 
         elif event.type == pygame.KEYDOWN:
@@ -217,30 +218,25 @@ while running:
                 elif event.key == pygame.K_UP:
                     scroll_offset = min(scroll_offset + 30, 0)
                 elif event.key == pygame.K_DOWN:
-                    scroll_offset -= 30
-                    scroll_offset = max(min(scroll_offset, 0), content_height - output_height)
+                    scroll_offset = max(scroll_offset - 30, output_height - content_height)
                 else:
                     text += event.unicode
 
         elif event.type == pygame.MOUSEWHEEL:
-            scroll_offset += event.y * 30
-            scroll_offset = max(min(scroll_offset, 0), content_height - output_height)
+            scroll_offset = max(min(scroll_offset + event.y * 30, 0), output_height - content_height)
 
-    # Blinking cursor logic
+    # Cursor blinking
     cursor_timer += clock.get_time()
     if cursor_timer >= 500:
         cursor_timer = 0
         show_cursor = not show_cursor
 
-    # Dropdown menu as title
-    model_selected_surface = TITLE_FONT.render(f"🎓 {model_selected} Generator", True, DARK)
-    screen.blit(model_selected_surface, (WIDTH // 2 - model_selected_surface.get_width() // 2, 20))
+    model_surface = TITLE_FONT.render(f"🎓 {model_selected} Generator", True, DARK)
+    screen.blit(model_surface, (WIDTH // 2 - model_surface.get_width() // 2, 20))
 
-    # Input label
     input_label = LABEL_FONT.render("Enter a topic (e.g. Gravity, Photosynthesis):", True, DARK)
     screen.blit(input_label, (input_rect.x, input_rect.y))
 
-    # Input box
     input_rect.y += 23
     pygame.draw.rect(screen, input_color, input_rect, border_radius=10)
     input_surface = INPUT_FONT.render(text, True, DARK)
@@ -253,34 +249,28 @@ while running:
         cursor_height = input_surface.get_height()
         pygame.draw.line(screen, DARK, (cursor_x, cursor_y), (cursor_x, cursor_y + cursor_height), 2)
 
-    # Render buttons next to each other
     render_button("EduPoem", buttons["edu_poem"], BLUE, DARK)
     render_button("GenZ Type Shii", buttons["gen_z_shii"], BLUE, DARK)
 
-    # Output background
-    # Output background with rounded corners
     pygame.draw.rect(screen, WHITE, (output_x, output_y + 15, output_width, output_height + 15), border_radius=15)
 
-    # Spinner or song text
     if loading:
         draw_spinner(WIDTH // 2, HEIGHT // 2, 30, angle)
     else:
         y_start = output_y + scroll_offset + 23
         content_height = 0
         rendered_lines = []
-
         for line in verse_lines:
             if line.strip():
-                # Wrap the line to fit the output area width
-                wrapped_lines = wrap_text(line.strip(), OUTPUT_FONT, output_width - 20)  # 20px padding
+                wrapped_lines = wrap_text(line.strip(), OUTPUT_FONT, output_width - 20)
                 for wrapped_line in wrapped_lines:
                     rendered_line = OUTPUT_FONT.render(wrapped_line, True, DARK)
                     rendered_lines.append((rendered_line, y_start + content_height))
-                    content_height += 26  # Adjust line height
+                    content_height += 26
 
-        # Draw the wrapped lines
         for rendered_line, y_position in rendered_lines:
             screen.blit(rendered_line, (output_x + 10, y_position))
 
-    pygame.display.update()  # Update the screen
-    clock.tick(60)  # FPS control
+    pygame.display.update()
+    clock.tick(60)
+
