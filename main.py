@@ -9,13 +9,11 @@ import google.generativeai as genai
 from gtts import gTTS
 import pygame.mixer
 
-# Initialize Pygame mixer
 pygame.mixer.init()
 
-# Speech queue and background thread
 speech_queue = queue.Queue()
 
-icon = pygame.image.load('cup.png')  # Replace with the path to your icon image
+icon = pygame.image.load('cup.png')  
 pygame.display.set_icon(icon)
 
 def speech_player():
@@ -41,33 +39,29 @@ def speech_player():
         except Exception as e:
             print(f"Speech error: {e}")
 
-# Start the background speech thread
 threading.Thread(target=speech_player, daemon=True).start()
 
 def speak_text(text):
     speech_queue.put(text)
 
-# Load environment variables
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Init Pygame
 pygame.init()
 pygame.font.init()
 
-# Window settings
+
 WIDTH, HEIGHT = 720, 540
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Don't Cry Over Spilt Coffee!")
 
-# Colors
 WHITE = (250, 250, 250)
 LIGHT = (240, 240, 240)
 DARK = (40, 40, 40)
 GRAY = (200, 200, 200)
 BLUE = (100, 149, 237)
 
-# Fonts
+
 def get_font(size):
     return pygame.font.SysFont("Segoe UI Emoji", size)
 
@@ -76,7 +70,6 @@ LABEL_FONT = get_font(20)
 INPUT_FONT = get_font(22)
 OUTPUT_FONT = get_font(18)
 
-# Input box setup
 input_rect = pygame.Rect(60, 125, 600, 45)
 input_color = GRAY
 active = False
@@ -85,7 +78,6 @@ verse_lines = []
 loading = False
 angle = 0
 
-# Output area
 output_x = 60
 output_y = 190
 output_width = 600
@@ -93,11 +85,9 @@ output_height = 280
 scroll_offset = 0
 content_height = 0
 
-# Cursor blinking
 cursor_timer = 0
 show_cursor = True
 
-# Spinner
 def draw_spinner(center_x, center_y, radius, angle):
     length = 8
     for i in range(length):
@@ -108,7 +98,6 @@ def draw_spinner(center_x, center_y, radius, angle):
         y = center_y + radius * math.sin(radians)
         pygame.draw.circle(screen, fade_color[:3], (int(x), int(y)), 6)
 
-# Generate educational poem
 def generate_edu_song(topic):
     global verse_lines, loading
     loading = True
@@ -127,7 +116,6 @@ def generate_edu_song(topic):
     loading = False
     speak_text("\n".join(verse_lines))
 
-# Generate Gen Z type shii
 def generate_genz_shii_song(topic):
     global verse_lines, loading
     loading = True
@@ -146,7 +134,6 @@ def generate_genz_shii_song(topic):
     loading = False
     speak_text("\n".join(verse_lines))
 
-# Function to wrap text
 def wrap_text(text, font, max_width):
     words = text.split(' ')
     lines = []
@@ -163,7 +150,6 @@ def wrap_text(text, font, max_width):
         lines.append(current_line)
     return lines
 
-# Main loop setup
 clock = pygame.time.Clock()
 running = True
 model_selected = "EduPoem"
@@ -186,7 +172,6 @@ def render_button(text, rect, color, hover_color):
     text_surface = LABEL_FONT.render(text, True, WHITE)
     screen.blit(text_surface, (rect.x + (rect.width - text_surface.get_width()) // 2, rect.y + (rect.height - text_surface.get_height()) // 2))
 
-# Main loop
 while running:
     screen.fill(LIGHT)
     angle += 0.1
@@ -225,7 +210,6 @@ while running:
         elif event.type == pygame.MOUSEWHEEL:
             scroll_offset = max(min(scroll_offset + event.y * 30, 0), output_height - content_height)
 
-    # Cursor blinking
     cursor_timer += clock.get_time()
     if cursor_timer >= 500:
         cursor_timer = 0
@@ -273,4 +257,5 @@ while running:
 
     pygame.display.update()
     clock.tick(60)
+
 
